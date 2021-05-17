@@ -51,6 +51,7 @@ expect(ocean.isClean).toEventually(beTruthy())
   - [Collection Elements](#collection-elements)
   - [Collection Count](#collection-count)
   - [Notifications](#notifications)
+  - [Result](#result)
   - [Matching a value to any of a group of matchers](#matching-a-value-to-any-of-a-group-of-matchers)
   - [Custom Validation](#custom-validation)
 - [Writing Your Own Matchers](#writing-your-own-matchers)
@@ -63,10 +64,6 @@ expect(ocean.isClean).toEventually(beTruthy())
   - [Supporting Objective-C](#supporting-objective-c)
     - [Properly Handling `nil` in Objective-C Matchers](#properly-handling-nil-in-objective-c-matchers)
   - [Migrating from the Old Matcher API](#migrating-from-the-old-matcher-api)
-    - [Minimal Step - Use `.predicate`](#minimal-step---use-predicate)
-    - [Convert to use `Predicate` Type with Old Matcher Constructor](#convert-to-use-predicate-type-with-old-matcher-constructor)
-    - [Convert to `Predicate` Type with Preferred Constructor](#convert-to-predicate-type-with-preferred-constructor)
-    - [Deprecation Roadmap](#deprecation-roadmap)
 - [Installing Nimble](#installing-nimble)
   - [Installing Nimble as a Submodule](#installing-nimble-as-a-submodule)
   - [Installing Nimble via CocoaPods](#installing-nimble-via-cocoapods)
@@ -1201,6 +1198,37 @@ expect {
 
 > This matcher is only available in Swift.
 
+## Result
+
+```swift
+// Swift
+let aResult: Result<String, Error> = .success("Hooray") 
+
+// passes if result is .success
+expect(aResult).to(beSuccess()) 
+
+// passes if result value is .success and validates Success value
+expect(aResult).to(beSuccess { value in
+    expect(value).to(equal("Hooray"))
+})
+
+
+enum AnError: Error {
+    case somethingHappened
+}
+let otherResult: Result<String, AnError> = .failure(.somethingHappened) 
+
+// passes if result is .failure
+expect(otherResult).to(beFailure()) 
+
+// passes if result value is .failure and validates error
+expect(otherResult).to(beFailure { error in
+    expect(error).to(matchError(AnError.somethingHappened))
+}) 
+```
+
+> This matcher is only available in Swift.
+
 ## Matching a value to any of a group of matchers
 
 ```swift
@@ -1239,22 +1267,22 @@ Note: This matcher allows you to chain any number of matchers together. This pro
 // Swift
 
 // passes if .succeeded is returned from the closure
-expect({
+expect {
     guard case .enumCaseWithAssociatedValueThatIDontCareAbout = actual else {
         return .failed(reason: "wrong enum case")
     }
 
     return .succeeded
-}).to(succeed())
+}.to(succeed())
 
 // passes if .failed is returned from the closure
-expect({
+expect {
     guard case .enumCaseWithAssociatedValueThatIDontCareAbout = actual else {
         return .failed(reason: "wrong enum case")
     }
 
     return .succeeded
-}).notTo(succeed())
+}.notTo(succeed())
 ```
 
 The `String` provided with `.failed()` is shown when the test fails.
@@ -1600,76 +1628,8 @@ Previously (`<7.0.0`), Nimble supported matchers via the following types:
 - `NonNilMatcherFunc`
 - `MatcherFunc`
 
-All of those types have been replaced by `Predicate`. While migrating can be a
-lot of work, Nimble currently provides several steps to aid migration of your
-custom matchers:
-
-### Minimal Step - Use `.predicate`
-
-Nimble provides an extension to the old types that automatically naively
-converts those types to the newer `Predicate`.
-
-```swift
-// Swift
-public func beginWith<S: Sequence>(_ startingElement: S.Element) -> Predicate<S> where S.Element: Equatable {
-    return NonNilMatcherFunc { actualExpression, failureMessage in
-        failureMessage.postfixMessage = "begin with <\(startingElement)>"
-        if let actualValue = actualExpression.evaluate() {
-            var actualGenerator = actualValue.makeIterator()
-            return actualGenerator.next() == startingElement
-        }
-        return false
-    }.predicate
-}
-```
-
-This is the simpliest way to externally support `Predicate` which allows easier
-composition than the old Nimble matcher interface, with minimal effort to change.
-
-### Convert to use `Predicate` Type with Old Matcher Constructor
-
-The second most convenient step is to utilize special constructors that
-`Predicate` supports that closely align to the constructors of the old Nimble
-matcher types.
-
-```swift
-// Swift
-public func beginWith<S: Sequence>(_ startingElement: S.Element) -> Predicate<S> where S.Element: Equatable {
-    return Predicate.fromDeprecatedClosure { actualExpression, failureMessage in
-        failureMessage.postfixMessage = "begin with <\(startingElement)>"
-        if let actualValue = actualExpression.evaluate() {
-            var actualGenerator = actualValue.makeIterator()
-            return actualGenerator.next() == startingElement
-        }
-        return false
-    }
-}
-```
-
-This allows you to completely drop the old types from your code, although the
-intended behavior may alter slightly to what is desired.
-
-### Convert to `Predicate` Type with Preferred Constructor
-
-Finally, you can convert to the native `Predicate` format using one of the
-constructors not used to assist in the migration.
-
-### Deprecation Roadmap
-
-Nimble 7 introduces `Predicate` but will support the old types with warning
-deprecations. A couple major releases of Nimble will remain backwards
-compatible with the old matcher api, although new features may not be
-backported.
-
-The deprecating plan is a 3 major versions removal. Which is as follows:
-
- 1. Introduce new `Predicate` API, deprecation warning for old matcher APIs.
-    (Nimble `v7.x.x` and `v8.x.x`)
- 2. Introduce warnings on migration-path features (`.predicate`,
-    `Predicate`-constructors with similar arguments to old API). (Nimble
-    `v9.x.x`)
- 3. Remove old API. (Nimble `v10.x.x`)
-
+All of those types have been replaced by `Predicate`. The old API has been
+removed completely in Nimble v10.
 
 # Installing Nimble
 
